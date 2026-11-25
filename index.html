@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="nl">
+<title>RimaLab Teambord</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: een werkbank. Bovenaan de twee mensen (wie doet wat), daaronder het bord in vijf bakken: Nieuw, Te doen, Bezig, Wacht, Klaar. */
+:root{
+  --bg:#edf2f7; --surface:#ffffff; --surface-2:#f4f7fb; --ink:#142238; --muted:#566880; --line:#d5dfea;
+  --accent:#0b86b8; --accent-ink:#ffffff;
+  --ricardo:#0b86b8; --ricardo-soft:#dcf0f8; --maurice:#c95f0a; --maurice-soft:#fbe8d6;
+  --ok:#1b8a4c; --ok-soft:#dcf2e5; --warn:#9a6600; --warn-soft:#fbefd2; --bad:#bf3535; --bad-soft:#f9dfdf;
+  --shadow:0 1px 2px rgba(20,34,56,.06),0 3px 10px rgba(20,34,56,.06);
+  --f-display:"Fredoka","Trebuchet MS",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1524; --surface:#14223a; --surface-2:#1a2b47; --ink:#e6eef9; --muted:#9fb2ca; --line:#28405f;
+  --accent:#38bdf0; --accent-ink:#06121f;
+  --ricardo:#38bdf0; --ricardo-soft:#123449; --maurice:#ff9b4a; --maurice-soft:#43280f;
+  --ok:#43cf85; --ok-soft:#113723; --warn:#f0b53a; --warn-soft:#3b2d0b; --bad:#ff7a7a; --bad-soft:#421a1a;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 3px 12px rgba(0,0,0,.25); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0c1524; --surface:#14223a; --surface-2:#1a2b47; --ink:#e6eef9; --muted:#9fb2ca; --line:#28405f;
+  --accent:#38bdf0; --accent-ink:#06121f;
+  --ricardo:#38bdf0; --ricardo-soft:#123449; --maurice:#ff9b4a; --maurice-soft:#43280f;
+  --ok:#43cf85; --ok-soft:#113723; --warn:#f0b53a; --warn-soft:#3b2d0b; --bad:#ff7a7a; --bad-soft:#421a1a;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 3px 12px rgba(0,0,0,.25); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+.wrap{max-width:1500px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* kop */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:18px 14px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 280px}
+.mark{width:40px;height:40px;border-radius:11px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;
+  font-family:var(--f-display);font-weight:700;font-size:17px;flex:none}
+.brand h1{font-size:24px;line-height:1.1}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.me{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:7px;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.seg button[data-who="Ricardo"][aria-pressed="true"]{background:var(--ricardo-soft);color:var(--ricardo);box-shadow:none}
+.seg button[data-who="Maurice"][aria-pressed="true"]{background:var(--maurice-soft);color:var(--maurice);box-shadow:none}
+.me.need .seg{box-shadow:0 0 0 3px var(--warn-soft);border-color:var(--warn)}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:10px;font-weight:600;font-size:13px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.small{padding:5px 10px;font-size:12px;border-radius:8px}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.notice{margin:0 0 14px;padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--ink);border:1px solid var(--warn);font-size:13px}
+
+/* de mensen */
+.people{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:12px}
+.person{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0;border-top:4px solid var(--line)}
+.person.r{border-top-color:var(--ricardo)} .person.m{border-top-color:var(--maurice)}
+.person-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+.person-head h2{font-size:19px}
+.person.r h2{color:var(--ricardo)} .person.m h2{color:var(--maurice)}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.stats b{font-family:var(--f-mono);color:var(--ink);font-size:14px;margin-right:3px}
+.stats button{border:0;background:none;padding:0;color:inherit;text-decoration:underline dotted;text-underline-offset:3px}
+.now{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.now-item{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:7px 9px;border-radius:9px;background:var(--surface-2);border:0;text-align:left;width:100%}
+.now-item span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13px}
+.now-item small{grid-column:1/-1;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.now-item .pct{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.empty-now{color:var(--muted);font-size:13px;padding:6px 0}
+.flag{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--warn-soft);color:var(--warn);margin-top:6px}
+.flag.bad{background:var(--bad-soft);color:var(--bad)}
+.free{background:var(--surface);border:1px dashed var(--muted);border-radius:14px;padding:14px 16px;min-width:0}
+.free h2{font-size:17px;margin-bottom:2px}
+.free p{margin:0 0 8px;color:var(--muted);font-size:12px}
+.free-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+.free-row:first-of-type{border-top:0}
+.free-row span{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* afspraken */
+details.rules{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:12px}
+details.rules summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:15px}
+.rules ol{margin:8px 0 2px;padding-left:20px;display:grid;gap:4px;max-width:80ch;color:var(--ink)}
+.rules li::marker{font-family:var(--f-mono);color:var(--muted)}
+
+/* filters */
+.bar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:12px}
+.bar input[type=search]{flex:1 1 200px;min-width:0;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+.bar select{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);max-width:100%}
+.check{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.oldnote{font-size:12px;color:var(--muted)}
+.oldnote button{border:0;background:none;padding:0;color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+
+/* het bord */
+.tabs{display:none;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px}
+.tabs button{flex:none;border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:999px;font-weight:600;font-size:13px;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tabs .n{font-family:var(--f-mono);margin-left:5px;opacity:.75}
+.board-scroll{overflow-x:auto;padding-bottom:6px}
+.board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:12px;min-width:1180px;align-items:start}
+.col{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:10px;min-width:0}
+.col-head{padding:2px 4px 8px}
+.col-head h2{font-size:16px;display:flex;align-items:center;gap:8px}
+.col-head .n{font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:1px 7px;border-radius:999px}
+.col-head p{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.col[data-col="bezig"] .col-head h2::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.col[data-col="wacht"] .col-head h2::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--warn)}
+.col[data-col="klaar"] .col-head h2::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--ok)}
+.cards{display:flex;flex-direction:column;gap:8px}
+.col-empty{color:var(--muted);font-size:12px;padding:10px 6px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 11px;box-shadow:var(--shadow);min-width:0;position:relative}
+.card.p1{box-shadow:inset 3px 0 0 var(--bad),var(--shadow)}
+.card.p3{opacity:.92}
+.card-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.num{font-family:var(--f-mono);font-size:11px;font-weight:600;color:var(--muted)}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.tag.old{border-style:dashed}
+.who{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;margin-left:auto;white-space:nowrap}
+.who.Ricardo{background:var(--ricardo-soft);color:var(--ricardo)}
+.who.Maurice{background:var(--maurice-soft);color:var(--maurice)}
+.who.vrij{background:transparent;color:var(--muted);border:1px dashed var(--muted)}
+.card h3{font-family:var(--f-body);font-size:13.5px;font-weight:600;line-height:1.35;margin:0}
+.card h3 button{all:unset;cursor:pointer}
+.card h3 button:hover{text-decoration:underline;text-underline-offset:3px}
+.card h3 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.progress{height:6px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden;margin-top:8px}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.meta{font-size:12px;color:var(--muted);margin-top:5px}
+.wait{font-size:12px;margin-top:6px;padding:5px 8px;border-radius:8px;background:var(--warn-soft);color:var(--ink)}
+.wait b{color:var(--warn)}
+.last{font-size:12px;color:var(--muted);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+
+/* het detailscherm */
+.overlay{position:fixed;inset:0;background:rgba(8,14,24,.55);display:flex;justify-content:center;align-items:flex-start;z-index:50;overflow-y:auto;
+  padding:calc(24px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:100%;max-width:640px;padding:18px 18px 16px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+.sheet-head h2{font-size:20px}
+.close{border:0;background:var(--surface-2);width:34px;height:34px;border-radius:9px;font-size:18px;line-height:1;flex:none}
+.form{display:grid;gap:12px}
+.form label{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
+.form input,.form select,.form textarea{padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);font-size:14px;color:var(--ink);width:100%;min-width:0}
+.form textarea{min-height:84px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.range-row{display:flex;align-items:center;gap:10px}
+.range-row input[type=range]{flex:1;padding:0;accent-color:var(--accent)}
+.range-row output{font-family:var(--f-mono);font-size:13px;min-width:44px;text-align:right;color:var(--ink)}
+.sheet-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;margin-top:4px}
+.sheet-actions .grp{display:flex;flex-wrap:wrap;gap:8px}
+.log{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+.log h3{font-size:14px;margin-bottom:6px}
+.log ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:220px;overflow-y:auto}
+.log li{font-size:13px;display:grid;grid-template-columns:auto 1fr;gap:2px 8px}
+.log li small{color:var(--muted);font-family:var(--f-mono);font-size:11px;white-space:nowrap}
+.log li .by{font-weight:600}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;z-index:60;box-shadow:var(--shadow)}
+
+@media (max-width:900px){
+  .tabs{display:flex}
+  .board-scroll{overflow:visible}
+  .board{display:block;min-width:0}
+  .col{display:none}
+  .col.on{display:block}
+}
+@media (max-width:520px){
+  .row2,.row3{grid-template-columns:1fr}
+  .brand h1{font-size:21px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .card{transition:border-color .15s}
+  .card:hover{border-color:var(--muted)}
+}
+.keysteps{margin:0 0 12px;padding-left:22px;line-height:1.6}.keysteps a{color:var(--accent);font-weight:700}
+.moved{margin:0 0 14px;padding:14px 16px;border-radius:14px;background:var(--warn-soft);border:2px solid var(--warn);color:var(--ink);font-family:var(--f-body);line-height:1.45}
+.moved strong{font-family:var(--f-display);font-size:1.15rem;display:block;margin-bottom:4px}
+.moved a{color:var(--accent);font-weight:700;word-break:break-word}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">RL</div>
+      <div>
+        <h1>RimaLab Teambord</h1>
+        <p>Ricardo en Maurice: wie doet wat, wat staat open en wat is klaar</p>
+      </div>
+    </div>
+    <div class="me" id="meBox">
+      <span>Ik ben</span>
+      <div class="seg" role="group" aria-label="Ik ben">
+        <button type="button" data-who="Ricardo" aria-pressed="false">Ricardo</button>
+        <button type="button" data-who="Maurice" aria-pressed="false">Maurice</button>
+      </div>
+    </div>
+    <button type="button" class="btn" id="keyBtn">GitHub</button>
+    <button type="button" class="btn primary" id="addBtn">+ Nieuw punt</button>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <section class="people" id="people" aria-label="Wie doet wat"></section>
+
+  <details class="rules" id="rules">
+    <summary>Zo werken we (5 afspraken)</summary>
+    <ol>
+      <li>Alles wat nieuw is, komt eerst in <b>Nieuw</b>. Niet meteen beginnen.</li>
+      <li>Eens per week (maandag) samen Nieuw sorteren: naar <b>Te doen</b> met een prioriteit, of <b>Weg</b>.</li>
+      <li>Bij <b>Bezig</b> elke werkdag een regel stand en een schatting wanneer het klaar is.</li>
+      <li>Bij <b>Wacht</b> altijd: op wie en waarop.</li>
+      <li>Klaar = afvinken. Claude werkt het bord bij aan het begin en eind van elke klus (de AI's via GitHub, net als jullie).</li>
+    </ol>
+  </details>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Laat zien van">
+      <button type="button" data-filter="all" aria-pressed="true">Iedereen</button>
+      <button type="button" data-filter="Ricardo" aria-pressed="false">Ricardo</button>
+      <button type="button" data-filter="Maurice" aria-pressed="false">Maurice</button>
+    </div>
+    <label class="check" for="areaSel">Onderwerp
+      <select id="areaSel"><option value="">alle</option></select>
+    </label>
+    <input type="search" id="search" placeholder="Zoek op woord of nummer (bv. 862)" aria-label="Zoeken">
+    <label class="check"><input type="checkbox" id="showGone"> Weggezet tonen</label>
+    <span class="oldnote" id="oldNote" hidden></span>
+  </div>
+
+  <nav class="tabs" id="tabs" aria-label="Bakken"></nav>
+  <div class="board-scroll"><main class="board" id="board"></main></div>
+</div>
+
+<div class="overlay" id="overlay" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+  "use strict";
+  var COLS = [
+    {id:"nieuw", name:"Nieuw", hint:"Nieuwe punten en ideeën. Eens per week sorteren."},
+    {id:"todo", name:"Te doen", hint:"Ingepland. Zonder naam = vrij, wie wil pakt hem."},
+    {id:"bezig", name:"Bezig", hint:"Iemand werkt eraan, met de stand van vandaag."},
+    {id:"wacht", name:"Wacht", hint:"Wacht op een keuze, test of oordeel."},
+    {id:"klaar", name:"Klaar", hint:"Afgevinkt in de laatste 14 dagen."}
+  ];
+  var STATUS_NAME = {nieuw:"Nieuw", todo:"Te doen", bezig:"Bezig", wacht:"Wacht", klaar:"Klaar", weg:"Weg"};
+  var PEOPLE = ["Ricardo","Maurice"];
+  var AREAS = ["HOMEWORLD","Arena en expeditie","Reactor Rumble","Bots en pakjes","Dieren","Winkels en inventory","Balans","Reels en marketing","Livegang","Gereedschap"];
+  var PRIO = {1:"Hoog",2:"Normaal",3:"Later"};
+  var STALE_DAYS = 3, WAIT_DAYS = 5, DONE_DAYS = 14;
+
+  var items = [], db = null, canWrite = true, loaded = false, loadTimer = null;
+  var me = store("tb_me") || "";
+  var filterWho = "all", filterArea = "", query = "", showGone = false, onlyOld = false;
+  var mobileCol = store("tb_col") || "todo";
+  var openId = null;
+  var queues = {};
+
+  function store(k, v){
+    try{ if(v === undefined) return localStorage.getItem(k); if(v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }catch(e){}
+    return null;
+  }
+  function $(id){ return document.getElementById(id); }
+  function el(tag, attrs, kids){
+    var n = document.createElement(tag);
+    if(attrs) for(var k in attrs){
+      var v = attrs[k];
+      if(v === null || v === undefined || v === false) continue;
+      if(k === "text") n.textContent = v;
+      else if(k === "class") n.className = v;
+      else if(k.slice(0,2) === "on") n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? "" : v);
+    }
+    if(kids) (Array.isArray(kids) ? kids : [kids]).forEach(function(c){ if(c === null || c === undefined || c === false) return; n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+  function nowIso(){ return new Date().toISOString(); }
+  function days(iso){ if(!iso) return Infinity; var t = Date.parse(iso); if(isNaN(t)) return Infinity; return (Date.now() - t) / 86400000; }
+  function ago(iso){
+    var d = days(iso); if(d === Infinity) return "";
+    if(d < 1/24) return "net";
+    if(d < 1) return Math.round(d*24) + " u geleden";
+    if(d < 2) return "gisteren";
+    return Math.floor(d) + " d geleden";
+  }
+  var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  function dayLabel(ymd){ if(!ymd) return ""; var p = String(ymd).split("-"); if(p.length !== 3) return String(ymd); return (+p[2]) + " " + MONTHS[(+p[1])-1]; }
+  function str(v){ return typeof v === "string" ? v : (v === null || v === undefined ? "" : String(v)); }
+  function person(v){ v = str(v); return PEOPLE.indexOf(v) >= 0 ? v : ""; }
+  function clean(d, id){
+    var st = str(d.status); if(!STATUS_NAME[st]) st = "nieuw";
+    var pr = +d.prio; if(!(pr === 1 || pr === 2 || pr === 3)) pr = 2;
+    var log = Array.isArray(d.log) ? d.log.filter(function(x){ return x && typeof x === "object"; }).slice(-40) : [];
+    var prog = Math.max(0, Math.min(100, Math.round(+d.progress || 0)));
+    var todo = (d.todo === null || d.todo === undefined || d.todo === "") ? null : Math.round(+d.todo);
+    if(todo !== null && isNaN(todo)) todo = null;
+    return {id:id, title:str(d.title) || "(zonder titel)", detail:str(d.detail), status:st, owner:person(d.owner),
+      waitOn:person(d.waitOn), waitWhat:str(d.waitWhat), prio:pr, area:str(d.area), todo:todo, progress:prog,
+      eta:str(d.eta), createdBy:str(d.createdBy), created:str(d.created), updated:str(d.updated),
+      startedAt:str(d.startedAt), doneAt:str(d.doneAt), src:str(d.src), log:log};
+  }
+  function toast(msg){
+    var t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(function(){ t.hidden = true; }, 2200);
+  }
+  function notice(msg){ var n = $("notice"); if(msg){ n.textContent = msg; n.hidden = false; } else n.hidden = true; }
+
+  /* ---------- schrijven (GitHub: de issues met het label bord in RimaLab/Bots) ---------- */
+  var REPO_OWNER = "RimaLab", REPO_NAME = "Bots", API = "https://api.github.com";
+  var REPO_PATH = "/repos/" + REPO_OWNER + "/" + REPO_NAME;
+  var LOGIN_NAME = {"ricardoschenkel91-tech":"Ricardo", "mauricetalens-debug":"Maurice"};
+  var NAME_LOGIN = {Ricardo:"ricardoschenkel91-tech", Maurice:"mauricetalens-debug"};
+  var STATUS_LABEL = {nieuw:"nieuw", todo:"te doen", bezig:"bezig", wacht:"wacht"};
+  var LABEL_ORDER = [["bezig","bezig"],["wacht","wacht"],["te doen","todo"],["nieuw","nieuw"]];
+  var token = store("tb_gh_token") || "";
+  var myLogin = "", pollTimer = null;
+
+  function gh(method, path, body){
+    return fetch(API + path, {method:method, cache:"no-store", headers:{"Authorization":"Bearer " + token, "Accept":"application/vnd.github+json",
+      "X-GitHub-Api-Version":"2022-11-28", "Content-Type":"application/json"}, body: body ? JSON.stringify(body) : undefined})
+      .then(function(r){
+        if(r.status === 204) return null;
+        return r.json().catch(function(){ return null; }).then(function(j){
+          if(!r.ok){ var e = new Error((j && j.message) || ("HTTP " + r.status)); e.status = r.status; throw e; }
+          return j;
+        });
+      });
+  }
+  function gql(query, vars){
+    return gh("POST", "/graphql", {query:query, variables:vars || {}}).then(function(j){
+      if(j && j.errors && j.errors.length){ var e = new Error(j.errors[0].message); e.status = (j.errors[0].type === "NOT_FOUND" ? 404 : 400); throw e; }
+      return j.data;
+    });
+  }
+  /* geen @naam in een issue (GitHub zou die persoon een bericht sturen) */
+  function safe(t){ return str(t).replace(/@/g, "@​"); }
+  function unsafe(t){ return str(t).replace(/@​/g, "@"); }
+
+  /* de kopregels bovenaan een issue: dezelfde vorm als tools/teambord/bord.py */
+  function makeBody(it){
+    var head = [];
+    if(it.todo !== null) head.push("**To-do:** " + it.todo);
+    head.push("**Wie:** " + (it.owner || "-"));
+    if(it.area) head.push("**Gebied:** " + it.area);
+    head.push("**Prio:** " + it.prio);
+    var lines = [head.join(" · "), "**Voortgang:** " + it.progress + " %",
+      "**Wacht op:** " + (it.waitOn ? it.waitOn + (it.waitWhat ? " (" + safe(it.waitWhat) + ")" : "") : "-")];
+    if(it.eta) lines.push("**Verwacht klaar:** " + it.eta);
+    lines.push("", it.detail ? safe(it.detail) : "_(nog geen uitleg)_", "", "---",
+      "Bron: `00_PROJECT_BRAIN/TODO_EIGENAAR_20261020.md`" + (it.todo !== null ? ", rij " + it.todo : "") + ". Werkwijze: `tools/teambord/README.md`.");
+    return lines.join("\n");
+  }
+  function parseBody(b){
+    b = str(b).replace(/\r\n/g, "\n");
+    var out = {area:"", prio:2, progress:0, waitOn:"", waitWhat:"", eta:"", detail:"", todo:null, who:""}, m;
+    var hasHead = /^\*\*(To-do|Wie):\*\*/.test(b);
+    if((m = b.match(/\*\*To-do:\*\*\s*(\d+)/))) out.todo = +m[1];
+    if((m = b.match(/\*\*Wie:\*\*\s*([^·\n]+)/))) out.who = person(m[1].trim());
+    if((m = b.match(/\*\*Gebied:\*\*\s*([^·\n]+)/))) out.area = m[1].trim();
+    if((m = b.match(/\*\*Prio:\*\*\s*([123])/))) out.prio = +m[1];
+    if((m = b.match(/\*\*Voortgang:\*\*\s*(\d+)\s*%/))) out.progress = Math.max(0, Math.min(100, +m[1]));
+    if((m = b.match(/\*\*Wacht op:\*\*\s*([^\n]*)/))){
+      var w = unsafe(m[1].trim());
+      if(w && w !== "-"){
+        var mm = w.match(/^([^(]+?)\s*(?:\((.*)\))?$/);
+        var who = person(mm ? mm[1].trim() : w);
+        out.waitOn = who; out.waitWhat = mm && mm[2] ? mm[2] : (who ? "" : w);
+      }
+    }
+    if((m = b.match(/\*\*Verwacht klaar:\*\*\s*(\d{4}-\d{2}-\d{2})/))) out.eta = m[1];
+    var parts = b.split("\n---\n");
+    var main = parts.length > 1 ? parts.slice(0, -1).join("\n---\n") : b;
+    var detail = main;
+    if(hasHead){ var i = main.indexOf("\n\n"); detail = i >= 0 ? main.slice(i + 2) : ""; }
+    detail = unsafe(detail.trim());
+    out.detail = detail === "_(nog geen uitleg)_" ? "" : detail;
+    return out;
+  }
+  function fromComment(c){
+    var b = unsafe(str(c.body).replace(/\r\n/g, "\n")).trim();
+    var login = c.author && c.author.login;
+    var who = LOGIN_NAME[login] || login || "?";
+    if(b.indexOf("**Geschiedenis van het oude bord**") === 0){
+      var out = [];
+      b.split("\n").forEach(function(line){
+        var m = line.match(/^- (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) · ([^:]+): (.*)$/);
+        if(m) out.push({at: m[1] + "T" + m[2] + ":00Z", by: m[3].trim(), text: m[4]});
+      });
+      return out;
+    }
+    var m2 = b.match(/^\*\*([^*\n]{1,40}):\*\*\s*([\s\S]*)$/);
+    if(m2) return [{at: c.createdAt, by: m2[1], text: m2[2].trim()}];
+    return [{at: c.createdAt, by: who, text: b}];
+  }
+  function fromIssue(n){
+    var p = parseBody(n.body);
+    var labels = ((n.labels && n.labels.nodes) || []).map(function(l){ return l.name; });
+    var st = "nieuw";
+    if(n.state === "CLOSED") st = n.stateReason === "NOT_PLANNED" ? "weg" : "klaar";
+    else for(var i = 0; i < LABEL_ORDER.length; i++){ if(labels.indexOf(LABEL_ORDER[i][0]) >= 0){ st = LABEL_ORDER[i][1]; break; } }
+    var title = str(n.title), todo = p.todo, num = false, m = title.match(/^(\d+)\s*·\s*(.*)$/);
+    if(m){ todo = +m[1]; title = m[2]; num = true; }
+    var owners = ((n.assignees && n.assignees.nodes) || []).map(function(a){ return LOGIN_NAME[a.login] || ""; }).filter(Boolean);
+    var log = [];
+    ((n.comments && n.comments.nodes) || []).forEach(function(c){ log = log.concat(fromComment(c)); });
+    log.sort(function(a, b){ return (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0); });
+    var login = n.author && n.author.login;
+    return {id: String(n.number), number: n.number, title: title || "(zonder titel)", detail: p.detail, status: st,
+      owner: owners[0] || p.who || "", waitOn: p.waitOn, waitWhat: p.waitWhat, prio: p.prio, area: p.area, todo: todo,
+      progress: st === "klaar" ? 100 : p.progress, eta: p.eta, createdBy: LOGIN_NAME[login] || login || "", created: str(n.createdAt),
+      updated: str(n.updatedAt), startedAt: "", doneAt: str(n.closedAt), src: "", log: log.slice(-40), labels: labels, _num: num};
+  }
+  function issuePayload(it){
+    var labels = (it.labels || []).filter(function(l){ return l !== "bord" && l !== "nieuw" && l !== "te doen" && l !== "bezig" && l !== "wacht"; });
+    labels.push("bord");
+    if(STATUS_LABEL[it.status]) labels.push(STATUS_LABEL[it.status]);
+    var p = {title: (it.todo !== null && it._num ? it.todo + " · " : "") + it.title, body: makeBody(it), labels: labels,
+      assignees: it.owner && NAME_LOGIN[it.owner] ? [NAME_LOGIN[it.owner]] : []};
+    if(it.status === "klaar"){ p.state = "closed"; p.state_reason = "completed"; }
+    else if(it.status === "weg"){ p.state = "closed"; p.state_reason = "not_planned"; }
+    else p.state = "open";
+    return p;
+  }
+  function needMe(){
+    if(me && db) return true;
+    askKey();
+    return false;
+  }
+  function enqueue(id, fn){
+    var prev = queues[id] || Promise.resolve();
+    var next = prev.then(fn, fn);
+    queues[id] = next.catch(function(){});
+    return next;
+  }
+  function writeErr(e){
+    var s = e && e.status;
+    if(s === 401){ askKey("Je GitHub-sleutel werkt niet (meer). Plak een nieuwe."); }
+    else if(s === 403 || s === 404){ canWrite = false; notice("Je GitHub-sleutel mag niet schrijven in RimaLab/Bots."); render(); }
+    else toast("Opslaan lukte niet" + (e && e.message ? ": " + e.message : "") + ". Probeer het nog eens.");
+  }
+  function applyLocal(nu, logText){
+    if(logText) nu.log = nu.log.concat([{at: nowIso(), by: me || "?", text: logText}]).slice(-40);
+    nu.updated = nowIso();
+    for(var i = 0; i < items.length; i++) if(items[i].id === nu.id) items[i] = nu;
+    render();
+  }
+  function patch(id, data, logText){
+    if(!db || !canWrite){ toast("Opslaan kan hier niet"); return Promise.resolve(false); }
+    return enqueue(id, function(){
+      var it = find(id);
+      if(!it) return false;
+      var nu = {}, k;
+      for(k in it) nu[k] = it[k];
+      for(k in data) nu[k] = data[k];
+      if(data.todo !== undefined && data.todo !== it.todo) nu._num = data.todo !== null;
+      if(nu.status === "klaar" && it.status !== "klaar"){ nu.progress = 100; nu.doneAt = nowIso(); }
+      return gh("PATCH", REPO_PATH + "/issues/" + it.number, issuePayload(nu))
+        .then(function(){ return logText ? gh("POST", REPO_PATH + "/issues/" + it.number + "/comments", {body: safe("**" + (me || "?") + ":** " + logText)}) : null; })
+        .then(function(){ applyLocal(nu, logText); reloadSoon(); return true; }, function(e){ writeErr(e); return false; });
+    });
+  }
+  function create(data){
+    if(!db || !canWrite){ toast("Opslaan kan hier niet"); return Promise.resolve(false); }
+    var it = {title: data.title, detail: data.detail || "", status: data.status || "nieuw", owner: data.owner || "", waitOn: data.waitOn || "",
+      waitWhat: data.waitWhat || "", prio: data.prio || 2, area: data.area || "", todo: data.todo === undefined ? null : data.todo,
+      progress: data.progress || 0, eta: data.eta || "", labels: [], _num: true};
+    var p = issuePayload(it), close = p.state === "closed" ? p.state_reason : null;
+    delete p.state; delete p.state_reason;
+    return gh("POST", REPO_PATH + "/issues", p)
+      .then(function(r){ return close ? gh("PATCH", REPO_PATH + "/issues/" + r.number, {state: "closed", state_reason: close}) : null; })
+      .then(function(){ reload(); return true; }, function(e){ writeErr(e); return false; });
+  }
+  /* een issue kun je niet weggooien: Verwijderen = Weg (gesloten als "not planned"; terug te halen) */
+  function remove(id){ return patch(id, {status: "weg"}, "Weggezet"); }
+
+  /* snelle handelingen */
+  function claim(it){
+    if(!needMe()) return;
+    patch(it.id, {status:"bezig", owner:me, startedAt: it.startedAt || nowIso(), waitOn:"", waitWhat:""}, "Opgepakt door " + me).then(function(ok){ if(ok) toast("Bezig: " + it.title); });
+  }
+  function finish(it){
+    if(!needMe()) return;
+    patch(it.id, {status:"klaar", progress:100, doneAt: nowIso(), waitOn:"", waitWhat:""}, "Klaar").then(function(ok){ if(ok) toast("Afgevinkt"); });
+  }
+  function resume(it){
+    if(!needMe()) return;
+    patch(it.id, {status: it.owner ? "bezig" : "todo", waitOn:"", waitWhat:""}, "Wacht niet meer").then(function(ok){ if(ok) toast("Weer verder"); });
+  }
+  function plan(it){
+    if(!needMe()) return;
+    patch(it.id, {status:"todo"}, "Ingepland").then(function(ok){ if(ok) toast("Naar Te doen"); });
+  }
+  function shelve(it){
+    if(!needMe()) return;
+    patch(it.id, {status:"weg"}, "Weggezet").then(function(ok){ if(ok) toast("Weggezet (terug te halen via Weggezet tonen)"); });
+  }
+
+  /* ---------- filteren ---------- */
+  function find(id){ for(var i = 0; i < items.length; i++) if(items[i].id === id) return items[i]; return null; }
+  function matches(it){
+    if(filterWho !== "all" && it.owner !== filterWho && it.waitOn !== filterWho) return false;
+    if(filterArea && it.area !== filterArea) return false;
+    if(onlyOld && it.src !== "oud") return false;
+    if(query){
+      var q = query.toLowerCase().replace(/^#/, "");
+      var hay = (it.title + " " + it.detail + " " + it.area + " " + (it.todo === null ? "" : it.todo) + " " + it.owner).toLowerCase();
+      if(hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  }
+  function colItems(col){
+    return items.filter(function(it){
+      if(col === "klaar") return it.status === "klaar" && (showGone || days(it.doneAt || it.updated) <= DONE_DAYS) && matches(it);
+      if(col === "nieuw") return (it.status === "nieuw" || (showGone && it.status === "weg")) && matches(it);
+      return it.status === col && matches(it);
+    }).sort(function(a, b){
+      if(col === "klaar") return Date.parse(b.doneAt || b.updated || 0) - Date.parse(a.doneAt || a.updated || 0);
+      if(a.status !== b.status) return a.status === "weg" ? 1 : -1;
+      if(a.prio !== b.prio) return a.prio - b.prio;
+      return (Date.parse(b.updated || 0) || 0) - (Date.parse(a.updated || 0) || 0);
+    });
+  }
+
+  /* ---------- tekenen ---------- */
+  function whoChip(it){
+    if(it.status === "wacht" && it.waitOn) return el("span", {class:"who " + it.waitOn, text:"wacht op " + it.waitOn});
+    if(it.owner) return el("span", {class:"who " + it.owner, text: it.owner});
+    if(it.status === "todo") return el("span", {class:"who vrij", text:"vrij"});
+    return null;
+  }
+  function lastLog(it){ var l = it.log[it.log.length - 1]; return l && l.text && l.text !== "Aangemaakt" ? l : null; }
+
+  function card(it){
+    var c = el("article", {class:"card p" + it.prio, "data-id": it.id});
+    var top = el("div", {class:"card-top"}, [
+      it.todo !== null ? el("span", {class:"num", text:"#" + it.todo}) : null,
+      it.area ? el("span", {class:"tag", text: it.area}) : null,
+      it.src === "oud" ? el("span", {class:"tag old", text:"oude lijst"}) : null,
+      it.status === "weg" ? el("span", {class:"tag", text:"weggezet"}) : null,
+      whoChip(it)
+    ]);
+    c.appendChild(top);
+    c.appendChild(el("h3", null, el("button", {type:"button", text: it.title, onclick: function(){ openSheet(it.id); }})));
+
+    if(it.status === "bezig"){
+      var bar = el("div", {class:"progress", role:"progressbar", "aria-valuenow": String(it.progress), "aria-valuemin":"0", "aria-valuemax":"100", "aria-label":"Voortgang"});
+      var fill = el("i"); fill.style.width = it.progress + "%"; bar.appendChild(fill);
+      c.appendChild(bar);
+      var bits = [it.progress + "%"];
+      if(it.eta) bits.push("klaar ± " + dayLabel(it.eta));
+      var l = lastLog(it); bits.push("stand " + (l ? ago(l.at) : ago(it.updated)));
+      c.appendChild(el("div", {class:"meta", text: bits.join(" · ")}));
+      if(days(l ? l.at : it.updated) > STALE_DAYS) c.appendChild(el("span", {class:"flag", text: Math.floor(days(l ? l.at : it.updated)) + " d geen stand"}));
+    }
+    if(it.status === "wacht"){
+      var w = el("div", {class:"wait"}, [el("b", {text:"Wacht op " + (it.waitOn || "?") + ": "}), it.waitWhat || "(waarop?)"]);
+      c.appendChild(w);
+      if(days(it.updated) > WAIT_DAYS) c.appendChild(el("span", {class:"flag bad", text:"wacht al " + Math.floor(days(it.updated)) + " d"}));
+    }
+    if(it.status === "klaar"){
+      c.appendChild(el("div", {class:"meta", text:"Klaar " + ago(it.doneAt || it.updated) + (it.owner ? " · " + it.owner : "")}));
+    } else if(it.status !== "bezig"){
+      var ll = lastLog(it);
+      if(ll) c.appendChild(el("div", {class:"last", text: ll.text}));
+      else if(it.detail && it.status === "nieuw") c.appendChild(el("div", {class:"last", text: it.detail}));
+    } else {
+      var lb = lastLog(it);
+      if(lb && lb.text.indexOf("Opgepakt") !== 0) c.appendChild(el("div", {class:"last", text: lb.text}));
+    }
+
+    if(canWrite && db){
+      var acts = el("div", {class:"actions"});
+      if(it.status === "nieuw"){
+        acts.appendChild(el("button", {type:"button", class:"btn small", text:"Inplannen", onclick:function(){ plan(it); }}));
+        acts.appendChild(el("button", {type:"button", class:"btn small ghost", text:"Weg", onclick:function(){ shelve(it); }}));
+      } else if(it.status === "weg"){
+        acts.appendChild(el("button", {type:"button", class:"btn small", text:"Terughalen", onclick:function(){ plan(it); }}));
+      } else if(it.status === "todo"){
+        acts.appendChild(el("button", {type:"button", class:"btn small primary", text:"Ik pak dit op", onclick:function(){ claim(it); }}));
+      } else if(it.status === "bezig"){
+        acts.appendChild(el("button", {type:"button", class:"btn small", text:"Stand", onclick:function(){ openSheet(it.id, "stand"); }}));
+        acts.appendChild(el("button", {type:"button", class:"btn small ok", text:"Klaar", onclick:function(){ finish(it); }}));
+      } else if(it.status === "wacht"){
+        acts.appendChild(el("button", {type:"button", class:"btn small", text:"Weer verder", onclick:function(){ resume(it); }}));
+      }
+      if(acts.childNodes.length) c.appendChild(acts);
+    }
+    return c;
+  }
+
+  function renderPeople(){
+    var box = $("people"); box.textContent = "";
+    PEOPLE.forEach(function(p){
+      var busy = items.filter(function(it){ return it.status === "bezig" && it.owner === p; })
+        .sort(function(a,b){ return a.prio - b.prio; });
+      var waiting = items.filter(function(it){ return it.status === "wacht" && it.waitOn === p; });
+      var todo = items.filter(function(it){ return it.status === "todo" && it.owner === p; });
+      var done = items.filter(function(it){ return it.status === "klaar" && it.owner === p && days(it.doneAt || it.updated) <= 7; });
+      var stale = busy.filter(function(it){ var l = lastLog(it); return days(l ? l.at : it.updated) > STALE_DAYS; });
+      var panel = el("section", {class:"person " + (p === "Ricardo" ? "r" : "m")});
+      panel.appendChild(el("div", {class:"person-head"}, [
+        el("h2", {text: p}),
+        el("div", {class:"stats"}, [
+          el("span", null, [el("b", {text:String(busy.length)}), "bezig"]),
+          el("span", null, [el("b", {text:String(todo.length)}), "te doen"]),
+          el("button", {type:"button", title:"Laat zien wat op " + p + " wacht", onclick:function(){ setWho(p); }}, [el("b", {text:String(waiting.length)}), "wacht op " + p]),
+          el("span", null, [el("b", {text:String(done.length)}), "klaar (7 d)"])
+        ])
+      ]));
+      var now = el("div", {class:"now"});
+      if(!busy.length) now.appendChild(el("div", {class:"empty-now", text: p + " heeft nu niets op Bezig staan."}));
+      busy.forEach(function(it){
+        var l = lastLog(it);
+        var sub = [it.eta ? "klaar ± " + dayLabel(it.eta) : "nog geen schatting", "stand " + (l ? ago(l.at) : ago(it.updated))];
+        if(l && l.text.indexOf("Opgepakt") !== 0) sub.unshift(l.text);
+        now.appendChild(el("button", {type:"button", class:"now-item", onclick:function(){ openSheet(it.id); }}, [
+          el("span", {text: it.title}), el("em", {class:"pct", text: it.progress + "%"}), el("small", {text: sub.join(" · ")})
+        ]));
+      });
+      panel.appendChild(now);
+      if(stale.length) panel.appendChild(el("span", {class:"flag", text: stale.length + " zonder stand sinds " + STALE_DAYS + "+ dagen"}));
+      box.appendChild(panel);
+    });
+
+    var free = items.filter(function(it){ return it.status === "todo" && !it.owner; }).sort(function(a,b){ return a.prio - b.prio || (Date.parse(a.created||0) - Date.parse(b.created||0)); });
+    var mine = me ? items.filter(function(it){ return it.status === "todo" && it.owner === me; }).sort(function(a,b){ return a.prio - b.prio; }) : [];
+    var list = mine.concat(free).slice(0, 4);
+    var fp = el("section", {class:"free"}, [
+      el("h2", {text:"Niks te doen?"}),
+      el("p", {text: list.length ? "Het belangrijkste dat klaarstaat" + (me ? " voor jou of vrij is" : " (kies bovenaan wie je bent)") + ":" : "Er staat niets vrij in Te doen. Sorteer de bak Nieuw."})
+    ]);
+    list.forEach(function(it){
+      fp.appendChild(el("div", {class:"free-row"}, [
+        it.todo !== null ? el("span", {class:"num", text:"#" + it.todo, style:"flex:none"}) : null,
+        el("span", {text: it.title, title: it.title}),
+        canWrite && db ? el("button", {type:"button", class:"btn small primary", text:"Pak op", onclick:function(){ claim(it); }}) : null
+      ]));
+    });
+    box.appendChild(fp);
+  }
+
+  function renderBoard(){
+    var board = $("board"); board.textContent = "";
+    var tabs = $("tabs"); tabs.textContent = "";
+    COLS.forEach(function(col){
+      var list = colItems(col.id);
+      var shown = col.id === "nieuw" ? list.filter(function(it){ return it.status !== "weg"; }).length : list.length;
+      tabs.appendChild(el("button", {type:"button", "aria-pressed": String(mobileCol === col.id), onclick:function(){ mobileCol = col.id; store("tb_col", col.id); renderBoard(); }},
+        [col.name, el("span", {class:"n", text:String(shown)})]));
+      var c = el("section", {class:"col" + (mobileCol === col.id ? " on" : ""), "data-col": col.id, "aria-label": col.name});
+      c.appendChild(el("div", {class:"col-head"}, [
+        el("h2", null, [col.name, el("span", {class:"n", text:String(shown)})]),
+        el("p", {text: col.hint})
+      ]));
+      var cards = el("div", {class:"cards"});
+      if(!loaded) cards.appendChild(el("div", {class:"col-empty", text:"Laden…"}));
+      else if(!list.length) cards.appendChild(el("div", {class:"col-empty", text: emptyText(col.id)}));
+      list.forEach(function(it){ cards.appendChild(card(it)); });
+      c.appendChild(cards);
+      board.appendChild(c);
+    });
+  }
+  function emptyText(col){
+    if(query || filterArea || filterWho !== "all" || onlyOld) return "Niets dat bij je filter past.";
+    return {nieuw:"Leeg. Een nieuw punt komt hier eerst.", todo:"Niets ingepland.", bezig:"Niemand is ergens mee bezig.", wacht:"Niets wacht.", klaar:"Nog niets afgevinkt de laatste 14 dagen."}[col];
+  }
+  function renderBar(){
+    var sel = $("areaSel");
+    var have = {}; AREAS.forEach(function(a){ have[a] = true; });
+    items.forEach(function(it){ if(it.area) have[it.area] = true; });
+    var cur = sel.value;
+    while(sel.options.length > 1) sel.remove(1);
+    Object.keys(have).forEach(function(a){ sel.appendChild(el("option", {value:a, text:a})); });
+    sel.value = cur;
+    var old = items.filter(function(it){ return it.src === "oud" && it.status === "nieuw"; }).length;
+    var on = $("oldNote"); on.textContent = "";
+    if(old || onlyOld){
+      on.hidden = false;
+      on.appendChild(document.createTextNode(onlyOld ? "Alleen de oude lijst. " : old + " punten uit de oude lijst om te sorteren. "));
+      on.appendChild(el("button", {type:"button", text: onlyOld ? "Alles tonen" : "Toon alleen die", onclick:function(){ onlyOld = !onlyOld; if(onlyOld){ mobileCol = "nieuw"; } render(); }}));
+    } else on.hidden = true;
+  }
+  function renderMe(){
+    document.querySelectorAll("#meBox button").forEach(function(b){ b.disabled = !!myLogin; b.title = myLogin ? "Volgt je GitHub-account" : ""; });
+    document.querySelectorAll("#meBox button").forEach(function(b){ b.setAttribute("aria-pressed", String(b.getAttribute("data-who") === me)); });
+    document.querySelectorAll(".bar .seg button").forEach(function(b){ b.setAttribute("aria-pressed", String(b.getAttribute("data-filter") === filterWho)); });
+    $("addBtn").disabled = !(db && canWrite);
+  }
+  function render(){
+    renderMe(); renderPeople(); renderBar(); renderBoard();
+    if(openId){ var it = find(openId); if(!it && openId !== "__new") closeSheet(); }
+  }
+  function setWho(p){ filterWho = p; if(p !== "all"){ mobileCol = "wacht"; } render(); }
+
+  /* ---------- het detailscherm ---------- */
+  function field(label, input, id){ return el("label", {for:id}, [label, input]); }
+  function selectEl(id, opts, val){
+    var s = el("select", {id:id});
+    opts.forEach(function(o){ s.appendChild(el("option", {value:o[0], text:o[1]})); });
+    s.value = val; return s;
+  }
+  function openSheet(id, focus){
+    openId = id;
+    var isNew = id === "__new";
+    var it = isNew ? {title:"", detail:"", status:"nieuw", owner:"", waitOn:"", waitWhat:"", prio:2, area:"", todo:null, progress:0, eta:"", log:[]} : find(id);
+    if(!it) return;
+    var ov = $("overlay"); ov.textContent = ""; ov.hidden = false;
+    var ro = !(db && canWrite);
+    var sh = el("div", {class:"sheet", role:"dialog", "aria-modal":"true", "aria-labelledby":"sheetTitle"});
+    sh.appendChild(el("div", {class:"sheet-head"}, [
+      el("div", null, [
+        el("h2", {id:"sheetTitle", text: isNew ? "Nieuw punt" : (it.todo !== null ? "#" + it.todo + " · " : "") + STATUS_NAME[it.status]}),
+        !isNew ? el("p", {class:"hint"}, [it.createdBy ? "Aangemaakt door " + it.createdBy + (it.created ? " · " + ago(it.created) : "") + " · " : "", el("a", {href:"https://github.com/" + REPO_OWNER + "/" + REPO_NAME + "/issues/" + it.number, target:"_blank", rel:"noopener", text:"in GitHub #" + it.number})]) : null
+      ]),
+      el("button", {type:"button", class:"close", "aria-label":"Sluiten", text:"×", onclick: closeSheet})
+    ]));
+
+    var f = el("div", {class:"form"});
+    var tTitle = el("input", {id:"fTitle", type:"text", value: it.title, maxlength:"160", placeholder:"Kort: wat moet er gebeuren?"});
+    var tDetail = el("textarea", {id:"fDetail", placeholder:"Wat en waarom, en wanneer is het klaar?"}); tDetail.value = it.detail;
+    var sOwner = selectEl("fOwner", [["","Vrij (nog niemand)"],["Ricardo","Ricardo"],["Maurice","Maurice"]], it.owner);
+    var sStatus = selectEl("fStatus", COLS.map(function(c){ return [c.id, c.name]; }).concat([["weg","Weg (niet meer nodig)"]]), it.status);
+    var sPrio = selectEl("fPrio", [["1","Hoog"],["2","Normaal"],["3","Later"]], String(it.prio));
+    var areaOpts = [["","(geen)"]].concat(AREAS.map(function(a){ return [a,a]; }));
+    if(it.area && AREAS.indexOf(it.area) < 0) areaOpts.push([it.area, it.area]);
+    var sArea = selectEl("fArea", areaOpts, it.area);
+    var tTodo = el("input", {id:"fTodo", type:"number", inputmode:"numeric", min:"1", value: it.todo === null ? "" : String(it.todo), placeholder:"bv. 862"});
+    f.appendChild(field("Titel", tTitle, "fTitle"));
+    f.appendChild(field("Wat en waarom", tDetail, "fDetail"));
+    f.appendChild(el("div", {class:"row3"}, [field("Van wie", sOwner, "fOwner"), field("Bak", sStatus, "fStatus"), field("Prioriteit", sPrio, "fPrio")]));
+    f.appendChild(el("div", {class:"row2"}, [field("Onderwerp", sArea, "fArea"), field("To-do-nummer", tTodo, "fTodo")]));
+
+    var waitBox = el("div", {class:"row2"});
+    var sWaitOn = selectEl("fWaitOn", [["","(kies)"],["Ricardo","Ricardo"],["Maurice","Maurice"]], it.waitOn);
+    var tWaitWhat = el("input", {id:"fWaitWhat", type:"text", value: it.waitWhat, placeholder:"bv. zijn keuze tussen A en B"});
+    waitBox.appendChild(field("Wacht op", sWaitOn, "fWaitOn"));
+    waitBox.appendChild(field("Waarop", tWaitWhat, "fWaitWhat"));
+    f.appendChild(waitBox);
+
+    var standBox = el("div", {class:"form"});
+    var rProg = el("input", {id:"fProg", type:"range", min:"0", max:"100", step:"5", value:String(it.progress)});
+    var oProg = el("output", {for:"fProg", text: it.progress + "%"});
+    rProg.addEventListener("input", function(){ oProg.textContent = rProg.value + "%"; });
+    var tEta = el("input", {id:"fEta", type:"date", value: it.eta});
+    var tNote = el("input", {id:"fNote", type:"text", placeholder:"Stand van vandaag (komt in de geschiedenis)"});
+    standBox.appendChild(el("div", {class:"row2"}, [
+      el("label", {for:"fProg"}, ["Voortgang", el("div", {class:"range-row"}, [rProg, oProg])]),
+      field("Verwacht klaar", tEta, "fEta")
+    ]));
+    if(!isNew) standBox.appendChild(field("Stand", tNote, "fNote"));
+    f.appendChild(standBox);
+
+    function sync(){ waitBox.hidden = sStatus.value !== "wacht"; standBox.hidden = sStatus.value !== "bezig"; }
+    sStatus.addEventListener("change", sync); sync();
+    sh.appendChild(f);
+
+    if(ro){ [tTitle,tDetail,sOwner,sStatus,sPrio,sArea,tTodo,sWaitOn,tWaitWhat,rProg,tEta,tNote].forEach(function(x){ x.disabled = true; }); }
+
+    var acts = el("div", {class:"sheet-actions"});
+    if(!ro){
+      var left = el("div", {class:"grp"});
+      var right = el("div", {class:"grp"});
+      var saveBtn = el("button", {type:"button", class:"btn primary", text: isNew ? "Toevoegen" : "Opslaan"});
+      saveBtn.addEventListener("click", function(){
+        if(!needMe()) return;
+        var title = tTitle.value.trim();
+        if(!title){ tTitle.focus(); toast("Geef het punt een titel"); return; }
+        var st = sStatus.value;
+        if(st === "wacht" && !sWaitOn.value){ sWaitOn.focus(); toast("Kies op wie het wacht"); return; }
+        var todoV = tTodo.value.trim() === "" ? null : Math.round(+tTodo.value);
+        if(todoV !== null && isNaN(todoV)) todoV = null;
+        var data = {title:title, detail:tDetail.value.trim(), status:st, owner:sOwner.value, prio:+sPrio.value, area:sArea.value, todo:todoV};
+        if(st === "wacht"){ data.waitOn = sWaitOn.value; data.waitWhat = tWaitWhat.value.trim(); } else { data.waitOn = ""; data.waitWhat = ""; }
+        if(st === "bezig"){ data.progress = +rProg.value; data.eta = tEta.value; if(!data.owner) data.owner = me; }
+        saveBtn.disabled = true;
+        if(isNew){
+          if(st === "bezig" && !data.owner) data.owner = me;
+          create(data).then(function(ok){ saveBtn.disabled = false; if(ok){ toast("Toegevoegd aan " + STATUS_NAME[st]); closeSheet(); } });
+          return;
+        }
+        var notes = [];
+        if(st !== it.status) notes.push("Naar " + STATUS_NAME[st]);
+        if(st === "bezig" && +rProg.value !== it.progress) notes.push(rProg.value + "%");
+        if(st === "bezig" && tEta.value && tEta.value !== it.eta) notes.push("klaar ± " + dayLabel(tEta.value));
+        if(st === "wacht" && (sWaitOn.value !== it.waitOn || tWaitWhat.value.trim() !== it.waitWhat)) notes.push("Wacht op " + sWaitOn.value + (tWaitWhat.value.trim() ? ": " + tWaitWhat.value.trim() : ""));
+        if(tNote.value.trim()) notes.push(tNote.value.trim());
+        if(st === "bezig" && it.status !== "bezig" && !it.startedAt) data.startedAt = nowIso();
+        if(st === "klaar" && it.status !== "klaar"){ data.doneAt = nowIso(); data.progress = 100; }
+        patch(it.id, data, notes.length ? notes.join(" · ") : "Bewerkt").then(function(ok){ saveBtn.disabled = false; if(ok){ toast("Opgeslagen"); closeSheet(); } });
+      });
+      right.appendChild(saveBtn);
+      if(!isNew){
+        if(it.status === "todo" || it.status === "nieuw") left.appendChild(el("button", {type:"button", class:"btn", text:"Ik pak dit op", onclick:function(){ claim(it); closeSheet(); }}));
+        if(it.status !== "klaar") left.appendChild(el("button", {type:"button", class:"btn ok", text:"Klaar", onclick:function(){ finish(it); closeSheet(); }}));
+        var del = el("button", {type:"button", class:"btn ghost danger", text:"Weg (niet meer nodig)"});
+        del.addEventListener("click", function(){
+          if(del.getAttribute("data-sure") !== "1"){ del.setAttribute("data-sure","1"); del.textContent = "Zeker? Klik nog eens"; return; }
+          remove(it.id).then(function(ok){ if(ok){ toast("Weggezet"); closeSheet(); } });
+        });
+        left.appendChild(del);
+      }
+      acts.appendChild(left); acts.appendChild(right);
+      sh.appendChild(acts);
+    } else {
+      sh.appendChild(el("p", {class:"hint", text:"Alleen bekijken: je GitHub-account mag niet schrijven in RimaLab/Bots."}));
+    }
+
+    if(!isNew && it.log.length){
+      var ul = el("ul");
+      it.log.slice().reverse().forEach(function(x){
+        ul.appendChild(el("li", null, [el("small", {text: x.at ? ago(x.at) : ""}), el("span", null, [el("span", {class:"by", text: str(x.by) + ": "}), str(x.text)])]));
+      });
+      sh.appendChild(el("div", {class:"log"}, [el("h3", {text:"Geschiedenis"}), ul]));
+    }
+    ov.appendChild(sh);
+    setTimeout(function(){ (focus === "stand" && !tNote.disabled ? tNote : (isNew ? tTitle : sh.querySelector(".close"))).focus(); }, 30);
+  }
+  function closeSheet(){ openId = null; var ov = $("overlay"); ov.hidden = true; ov.textContent = ""; }
+  $("overlay").addEventListener("click", function(e){ if(e.target === $("overlay")) closeSheet(); });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape" && openId) closeSheet(); });
+
+  /* ---------- bediening ---------- */
+  document.querySelectorAll("#meBox button").forEach(function(b){
+    b.addEventListener("click", function(){ me = b.getAttribute("data-who"); store("tb_me", me); $("meBox").classList.remove("need"); render(); });
+  });
+  document.querySelectorAll(".bar .seg button").forEach(function(b){
+    b.addEventListener("click", function(){ filterWho = b.getAttribute("data-filter"); render(); });
+  });
+  $("areaSel").addEventListener("change", function(e){ filterArea = e.target.value; render(); });
+  $("search").addEventListener("input", function(e){ query = e.target.value.trim(); renderBoard(); });
+  $("showGone").addEventListener("change", function(e){ showGone = e.target.checked; render(); });
+  $("addBtn").addEventListener("click", function(){ if(!needMe()) return; openSheet("__new"); });
+  try{ if(store("tb_rules") === "dicht") $("rules").open = false; else $("rules").open = true; }catch(e){}
+  $("rules").addEventListener("toggle", function(){ store("tb_rules", $("rules").open ? "open" : "dicht"); });
+
+  render();
+
+  /* ---------- laden uit GitHub (een vraag voor alles; elke 45 s opnieuw zolang de pagina in beeld is) ---------- */
+  var Q = "query($c:String){repository(owner:\"" + REPO_OWNER + "\",name:\"" + REPO_NAME + "\"){issues(first:100,after:$c,labels:[\"bord\"],"
+    + "orderBy:{field:UPDATED_AT,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{number title body state stateReason createdAt updatedAt "
+    + "closedAt author{login} labels(first:20){nodes{name}} assignees(first:5){nodes{login}} comments(last:20){nodes{body createdAt author{login}}}}}}}";
+  var loading = null, soon = null;
+  function reload(){
+    if(!token) return Promise.resolve();
+    if(loading) return loading;
+    var all = [];
+    function page(c){
+      return gql(Q, {c: c}).then(function(d){
+        var is = d && d.repository && d.repository.issues;
+        if(!is){ var e = new Error("Geen toegang tot RimaLab/Bots"); e.status = 404; throw e; }
+        all = all.concat(is.nodes);
+        return is.pageInfo.hasNextPage && all.length < 1000 ? page(is.pageInfo.endCursor) : all;
+      });
+    }
+    loading = page(null).then(function(nodes){
+      items = nodes.map(fromIssue); loaded = true;
+      if($("notice").textContent.indexOf("laden") >= 0) notice("");
+      render();
+    }, function(e){
+      loaded = true;
+      if(e.status === 401) askKey("Je GitHub-sleutel werkt niet (meer). Plak een nieuwe.");
+      else notice("Het bord kon niet laden (" + e.message + "). Het probeert het zo opnieuw.");
+      render();
+    }).then(function(){ loading = null; });
+    return loading;
+  }
+  function reloadSoon(){ clearTimeout(soon); soon = setTimeout(reload, 1500); }
+  function startPolling(){
+    clearInterval(pollTimer);
+    pollTimer = setInterval(function(){ if(!document.hidden && !openId) reload(); }, 45000);
+  }
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden && !openId) reload(); });
+
+  /* ---------- de GitHub-sleutel (een keer per toestel; blijft alleen in deze browser) ---------- */
+  function askKey(msg){
+    openId = "__key";
+    var ov = $("overlay"); ov.textContent = ""; ov.hidden = false;
+    var sh = el("div", {class:"sheet", role:"dialog", "aria-modal":"true", "aria-labelledby":"keyTitle"});
+    sh.appendChild(el("div", {class:"sheet-head"}, [
+      el("div", null, [el("h2", {id:"keyTitle", text:"Verbind met GitHub"}),
+        el("p", {class:"hint", text: msg || "Een keer per toestel. De gegevens van het bord staan in GitHub (RimaLab/Bots); met je eigen sleutel lees en schrijf je ze."})]),
+      token ? el("button", {type:"button", class:"close", "aria-label":"Sluiten", text:"×", onclick: closeSheet}) : null
+    ]));
+    var steps = el("ol", {class:"keysteps"});
+    steps.appendChild(el("li", null, ["Open ", el("a", {href:"https://github.com/settings/tokens/new?scopes=repo&description=RimaLab%20Teambord", target:"_blank", rel:"noopener", text:"deze GitHub-pagina"}), " (ingelogd met je eigen GitHub-account)."]));
+    steps.appendChild(el("li", {text:"Het vakje \"repo\" staat al aangevinkt. Kies bij Expiration \"No expiration\" (of 1 jaar)."}));
+    steps.appendChild(el("li", {text:"Klik onderaan op \"Generate token\" en kopieer de sleutel (hij begint met ghp_)."}));
+    steps.appendChild(el("li", {text:"Plak hem hieronder en klik op Verbinden."}));
+    sh.appendChild(steps);
+    var input = el("input", {id:"fKey", type:"password", autocomplete:"off", placeholder:"ghp_...", spellcheck:"false"});
+    var f = el("div", {class:"form"}, [el("label", {for:"fKey"}, ["Je GitHub-sleutel", input])]);
+    sh.appendChild(f);
+    sh.appendChild(el("p", {class:"hint", text:"De sleutel blijft alleen in deze browser op dit toestel en gaat alleen naar GitHub. Deel hem met niemand. Intrekken kan altijd op github.com bij Settings > Developer settings > Tokens."}));
+    var go = el("button", {type:"button", class:"btn primary", text:"Verbinden"});
+    var acts = el("div", {class:"sheet-actions"}, [el("div", {class:"grp"}, [
+      token ? el("button", {type:"button", class:"btn ghost danger", text:"Uitloggen op dit toestel", onclick:function(){
+        store("tb_gh_token", null); store("tb_me", null); token = ""; me = ""; db = null; canWrite = false; items = []; clearInterval(pollTimer); render(); askKey();
+      }}) : null]), el("div", {class:"grp"}, [go])]);
+    sh.appendChild(acts);
+    go.addEventListener("click", function(){
+      var v = input.value.trim();
+      if(!v){ input.focus(); toast("Plak eerst je sleutel"); return; }
+      go.disabled = true; go.textContent = "Even kijken...";
+      var old = token; token = v;
+      connect().then(function(ok){
+        go.disabled = false; go.textContent = "Verbinden";
+        if(ok){ store("tb_gh_token", v); closeSheet(); toast("Verbonden als " + me); }
+        else token = old;
+      });
+    });
+    input.addEventListener("keydown", function(e){ if(e.key === "Enter") go.click(); });
+    ov.appendChild(sh);
+    setTimeout(function(){ input.focus(); }, 30);
+  }
+  function connect(){
+    return gh("GET", "/user").then(function(u){
+      myLogin = u.login; me = LOGIN_NAME[myLogin] || myLogin; store("tb_me", me);
+      return gh("GET", REPO_PATH);
+    }).then(function(r){
+      var pm = (r && r.permissions) || {};
+      db = {}; canWrite = !!(pm.push || pm.triage || pm.maintain || pm.admin);
+      notice(canWrite ? "" : "Je kunt het bord alleen bekijken: je GitHub-account mag niet schrijven in RimaLab/Bots.");
+      render(); startPolling(); reload(); return true;
+    }, function(e){
+      if(e.status === 401) toast("Deze sleutel werkt niet. Kopieer hem opnieuw.");
+      else if(e.status === 404 || e.status === 403) toast("Deze sleutel ziet RimaLab/Bots niet. Staat het vakje \"repo\" aan, en zit je account in de repo?");
+      else toast("GitHub is niet bereikbaar: " + e.message);
+      return false;
+    });
+  }
+  $("keyBtn").addEventListener("click", function(){ askKey(token ? "Ingelogd als " + (me || "?") + " (" + (myLogin || "?") + ")." : null); });
+
+  function start(){
+    if(!token){ loaded = true; render(); askKey(); return; }
+    notice("Het bord wordt geladen...");
+    connect().then(function(ok){ if(!ok){ loaded = true; render(); askKey("Je opgeslagen sleutel werkt niet meer. Plak een nieuwe."); } });
+  }
+  start();
+})();
+</script>
+</html>
